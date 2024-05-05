@@ -6,9 +6,13 @@ window_size = (600, 600)
 window = pygame.display.set_mode(window_size)
 clock = pygame.time.Clock()
 
-x = 0
 size = 30
-y = window_size[1] - size
+bottom_left = window_size[1] - size
+x, y = 0, bottom_left
+in_the_air = False
+fall_rate = 300
+jump_rate = 400
+min_height = bottom_left - size * 2.5
 
 delta_time = 0
 running = True
@@ -20,15 +24,20 @@ while running:
 
     window.fill("black")
 
-    size = 30
+    keys = pygame.key.get_pressed()
+    pressed_space = keys[pygame.K_SPACE]
+    if pressed_space and y > min_height:
+        in_the_air = True
+        y -= jump_rate * delta_time
+
+    if in_the_air and not pressed_space:
+        y += fall_rate * delta_time
+        if y >= bottom_left:
+            y = bottom_left
+            in_the_air = False
+
     rect = pygame.Rect(x, y, size, size)
     pygame.draw.rect(window, "green", rect)
-
-    keys = pygame.key.get_pressed()
-    height = 500 * delta_time
-    if keys[pygame.K_SPACE]:
-        print("jump!")
-        y -= height
 
     pygame.display.update()
 
