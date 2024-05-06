@@ -9,38 +9,48 @@ pygame.display.set_caption("dino")
 clock = pygame.time.Clock()
 
 size = 30
-bottom_left = window_size[1] - size
-x, y = 50, bottom_left
-jumping = False
-default_velocity = 2000
-velocity = default_velocity
-acceleration = 0.01
-jumping = False
-min_height = bottom_left - size * 4.5
+ground_y = window_size[1] - size
+default_jump_peek = ground_y - size * 4
+jump_peek = default_jump_peek
+dino = pygame.Rect(50, ground_y, size, size)
+
+going_up = False
+up_force = 400
+going_down = False
+down_force = 300
 
 speed = 100
-
-# TODO: fix jumping and avoid clumping obstacles close to one another
+PREVIOUS_OFFSET = 0
 
 
 class Obstacle:
     def __init__(self):
-        self.size = 10
+        size = 10
+        x = window_size[0] + self.random_offset()
+        y = window_size[1] - size
+        self.rect = pygame.Rect(x, y, size, size)
+
+    # Choose a random offset that avoids being
+    # to close to other obstacles
+    def random_offset(self):
+        global PREVIOUS_OFFSET
         offset = random.randint(50, 500)
-        self.x = window_size[0] + offset
-        self.y = window_size[1] - self.size
+        while abs(offset - PREVIOUS_OFFSET) < 100:
+            offset = random.randint(50, 500)
+        PREVIOUS_OFFSET = offset
+        return offset
 
     def update(self, speed):
-        self.x -= speed * delta_time
-        if self.x < 0:
-            offset = random.randint(50, 500)
-            self.x = window_size[0] + offset
+        self.rect.x -= speed * delta_time
+        if self.rect.x < 0:
+            self.rect.x = window_size[0] + self.random_offset()
 
     def draw(self):
-        pygame.draw.circle(window, "red", (self.x, self.y), self.size)
+        pygame.draw.circle(window, "red", (self.rect.x,
+                           self.rect.y), self.rect.width)
 
 
-obstables = [Obstacle(), Obstacle()]
+obstacles = [Obstacle(), Obstacle()]
 
 delta_time = 0
 running = True
@@ -51,29 +61,34 @@ while running:
             break
 
     keys = pygame.key.get_pressed()
-    pressed_space = keys[pygame.K_SPACE]
-    if pressed_space and y > min_height:
-        velocity += acceleration
-        y -= velocity * delta_time
-        jumping = True
+    if keys[pygame.K_SPACE] and not going_down:
+        going_up = True
+        # Jump a little higher based on how long we hold the space key
+        jump_peek -= 1
 
-    if jumping and not pressed_space:
-        velocity -= acceleration
-        y += abs(velocity) * delta_time
-        if y > bottom_left:
-            velocity = default_velocity
-            y = bottom_left
-            jumping = False
+    if going_down:
+        dino.y += down_force * delta_time
+        if dino.y > ground_y:
+            dino.y = ground_y
+            going_down = False
+    elif going_up:
+        dino.y -= up_force * delta_time
+        if dino.y < jump_peek:
+            dino.y = jump_peek
+            going_up = False
+            going_down = True
+            jump_peek = default_jump_peek
 
-    for obstacle in obstables:
+    for obstacle in obstacles:
         obstacle.update(speed)
+        if dino.colliderect(obstacle.rect):
+            print("game over")
 
     window.fill("black")
 
-    rect = pygame.Rect(x, y, size, size)
-    pygame.draw.rect(window, "green", rect)
+    pygame.draw.rect(window, "green", dino)
 
-    for obstacle in obstables:
+    for obstacle in obstacles:
         obstacle.draw()
 
     pygame.display.update()
