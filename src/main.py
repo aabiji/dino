@@ -26,18 +26,30 @@ def crop_spritesheet(x, y, width, height):
 class Ground:
     def __init__(self, window_width, window_height):
         self.window_width = window_width
-        self.rect = pygame.Rect(0, window_height - 25, 2404, 25)
-        self.sprite = crop_spritesheet(0, 105, 2404, 25)
+        self.rect1 = pygame.Rect(0, window_height - 25, 2404, 25)
+        self.sprite1 = crop_spritesheet(0, 105, 2404, 25)
+        self.sprite1.set_colorkey((0, 0, 0))
 
+        self.rect2 = pygame.Rect(self.rect1.width - self.window_width, window_height - 25, 2404, 25)
+        self.sprite2 = crop_spritesheet(0, 105, 2404, 25)
+        self.sprite2.set_colorkey((0, 0, 0))
+
+    # We have 2 sprites, so when one goes off the screen,
+    # the other replaces it and vice versa, allowing for smooth scrolling
+    # without any choppiness
     def update(self):
-        # Shift the sprite across the viewport until we get to the last bit
-        self.rect.x -= 1
-        max_scroll = self.sprite.get_width() - self.window_width
-        if abs(self.rect.x) == max_scroll:
-            self.rect.x = 0
+        self.rect1.x -= 1
+        self.rect2.x -= 1
+
+        max_scroll = self.rect1.width - self.window_width
+        if self.rect1.x <= -max_scroll: # when the end is at 0, the other sprite beginning is also at 0, so the other sprite takes its place
+            self.rect1.x = self.rect1.width - self.window_width
+        if self.rect2.x < -max_scroll:
+            self.rect2.x = self.rect2.width - self.window_width
 
     def draw(self, canvas):
-        canvas.blit(self.sprite, self.rect)
+        canvas.blit(self.sprite1, self.rect1)
+        canvas.blit(self.sprite2, self.rect2)
 
 class Player:
     def __init__(self, ground_y):
@@ -152,7 +164,7 @@ while running:
         if player.rect.colliderect(obstacle.rect):
             print("game over")
 
-    window.fill("black")
+    window.fill("white")
     ground.draw(window)
     player.draw(window)
     for obstacle in obstacles:
