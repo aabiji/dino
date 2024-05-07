@@ -1,56 +1,137 @@
+# TODO: the code's really messy. please refactor
+# TODO: add animations
+# TODO: be able to choose small cacti as well
+# TODO: when we jump it feels like we're hitting a ceiling. why?
+
 import pygame
 import random
 pygame.init()
 
 fps = 60
-window_size = (600, 600)
-window = pygame.display.set_mode(window_size)
+window_width = 600
+window_height = 600
+window = pygame.display.set_mode((window_width, window_height))
 pygame.display.set_caption("dino")
 clock = pygame.time.Clock()
 
-size = 30
-ground_y = window_size[1] - size
-default_jump_peek = ground_y - size * 4
-jump_peek = default_jump_peek
-dino = pygame.Rect(50, ground_y, size, size)
-
-going_up = False
-up_force = 400
-going_down = False
-down_force = 300
-
-speed = 100
 PREVIOUS_OFFSET = 0
 
+def crop_spritesheet(x, y, width, height):
+    sheet = pygame.image.load("sprite.png")
+    crop_area = pygame.Rect(x, y, width, height)
+    sprite = pygame.Surface((width, height))
+    sprite.blit(sheet, (0, 0), crop_area)
+    return sprite
+
+class Ground:
+    def __init__(self, window_width, window_height):
+        self.window_width = window_width
+        self.rect = pygame.Rect(0, window_height - 25, 2404, 25)
+        self.sprite = crop_spritesheet(0, 105, 2404, 25)
+
+    def update(self):
+        # Shift the sprite across the viewport until we get to the last bit
+        self.rect.x -= 1
+        max_scroll = self.sprite.get_width() - self.window_width
+        if abs(self.rect.x) == max_scroll:
+            self.rect.x = 0
+
+    def draw(self, canvas):
+        canvas.blit(self.sprite, self.rect)
+
+class Player:
+    def __init__(self, ground_y):
+        self.ground = ground_y
+        self.rect = pygame.Rect(50, self.ground, 30, 30)
+        self.jump_peek = self.ground - self.rect.height * 10
+        self.jumping_up = False
+        self.jumping_down = False
+        self.jump_extra = 0
+        self.gravity = 300
+
+        self.sprite = crop_spritesheet(1335, 0, 90, 95)
+        self.rect.width = self.sprite.get_width()
+        self.rect.height = self.sprite.get_height()
+        self.rect.y = self.ground - self.rect.height
+        self.sprite.set_colorkey((0, 0, 0)) # make background transparent
+
+    def draw(self, canvas):
+        canvas.blit(self.sprite, self.rect)
+
+    def jump(self):
+        if self.jumping_down:
+            return
+
+        self.jumping_up = True
+        # Increase our jump height based on how
+        # long we jump
+        self.jump_extra += 1
+
+    def update(self, delta_time):
+        # Move up or down a little bit each frame
+        if self.jumping_down:
+            self.rect.y += self.gravity * delta_time
+            below_ground = self.rect.y >= self.ground - self.rect.height
+            if below_ground:
+                self.rect.y = self.ground - self.rect.height
+                self.jumping_down = False
+
+        if self.jumping_up:
+            self.rect.y -= self.gravity * delta_time
+            too_high = self.rect.y < self.jump_peek - self.jump_extra
+            if too_high:
+                self.rect.y = self.jump_peek
+                self.jumping_up = False
+                self.jumping_down = True
+                self.jump_extra = 0
+
+cacti_sprites = [
+    crop_spritesheet(650, 0, 52, 100),
+    crop_spritesheet(702, 0, 50, 100),
+    crop_spritesheet(752, 0, 98, 100),
+    crop_spritesheet(850, 0, 103, 100)
+]
 
 class Obstacle:
-    def __init__(self):
-        size = 10
-        x = window_size[0] + self.random_offset()
-        y = window_size[1] - size
-        self.rect = pygame.Rect(x, y, size, size)
+    def __init__(self, window_width, ground_y):
+        self.width = window_width
+        self.speed = 100
+        self.sprite = None
+        self.ground = ground_y
+        self.rect = pygame.Rect(0, 0, 0, 0)
+        self.spawn()
 
     # Choose a random offset that avoids being
     # to close to other obstacles
     def random_offset(self):
         global PREVIOUS_OFFSET
-        offset = random.randint(50, 500)
-        while abs(offset - PREVIOUS_OFFSET) < 100:
-            offset = random.randint(50, 500)
+        offset = random.randint(50, 800)
+        while abs(offset - PREVIOUS_OFFSET) < 300:
+            offset = random.randint(50, 800)
         PREVIOUS_OFFSET = offset
         return offset
 
-    def update(self, speed):
-        self.rect.x -= speed * delta_time
-        if self.rect.x < 0:
-            self.rect.x = window_size[0] + self.random_offset()
+    def spawn(self):
+        self.rect.x = self.width + self.random_offset()
+        self.sprite = random.choice(cacti_sprites)
+        self.sprite.set_colorkey((0, 0, 0)) # make background transparent
+        self.rect.width = self.sprite.get_width()
+        self.rect.height = self.sprite.get_height()
+        self.rect.y = self.ground - self.rect.height
 
-    def draw(self):
-        pygame.draw.circle(window, "red", (self.rect.x,
-                           self.rect.y), self.rect.width)
+    def update(self, delta_time):
+        self.rect.x -= self.speed * delta_time
+        if self.rect.x < -self.sprite.get_width(): # off the screen
+            self.spawn()
 
+    def draw(self, canvas):
+        canvas.blit(self.sprite, self.rect)
 
-obstacles = [Obstacle(), Obstacle()]
+ground = Ground(window_width, window_height)
+player = Player(window_height)
+obstacles = []
+for i in range(2):
+    obstacles.append(Obstacle(window_width,window_height))
 
 delta_time = 0
 running = True
@@ -61,35 +142,21 @@ while running:
             break
 
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_SPACE] and not going_down:
-        going_up = True
-        # Jump a little higher based on how long we hold the space key
-        jump_peek -= 1
+    if keys[pygame.K_SPACE]:
+        player.jump()
 
-    if going_down:
-        dino.y += down_force * delta_time
-        if dino.y > ground_y:
-            dino.y = ground_y
-            going_down = False
-    elif going_up:
-        dino.y -= up_force * delta_time
-        if dino.y < jump_peek:
-            dino.y = jump_peek
-            going_up = False
-            going_down = True
-            jump_peek = default_jump_peek
-
+    ground.update()
+    player.update(delta_time)
     for obstacle in obstacles:
-        obstacle.update(speed)
-        if dino.colliderect(obstacle.rect):
+        obstacle.update(delta_time)
+        if player.rect.colliderect(obstacle.rect):
             print("game over")
 
     window.fill("black")
-
-    pygame.draw.rect(window, "green", dino)
-
+    ground.draw(window)
+    player.draw(window)
     for obstacle in obstacles:
-        obstacle.draw()
+        obstacle.draw(window)
 
     pygame.display.update()
 
