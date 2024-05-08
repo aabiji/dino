@@ -1,24 +1,16 @@
 import os
 import random
-
-def init_script():
-    # Disable pygame import message
-    os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
-
-    # Assure that our required sprites are present
-    spritesheet_path = "assets/spritesheet.png"
-    if not os.path.exists(spritesheet_path):
-        print("Game assets not found")
-        exit()
-init_script()
-
 import pygame
-pygame.init()
 
 class Spritesheet:
     def __init__(self):
         path = "assets/spritesheet.png"
+        if not os.path.exists(path):
+            print("assets/spritesheet.png not found")
+            exit(1)
+
         self.sheet = pygame.image.load(path)
+        self.sheet = pygame.transform.grayscale(self.sheet)
         self.width = self.sheet.get_width()
         self.height = self.sheet.get_height()
 
@@ -29,21 +21,37 @@ class Spritesheet:
         sprite.blit(self.sheet, (0, 0), crop_area)
         return sprite
 
-class Ground:
-    def __init__(self, window_width, window_height, spritesheet):
-        width = spritesheet.width
-        height = 25
+    def get_ground_sprite(self):
+        width, height = self.width, 15
+        return self.crop(0, self.height - height, width, height)
 
-        self.sprite = spritesheet.crop(0, spritesheet.height - height, width, height)
-        self.sprite.set_colorkey((0, 0, 0)) # Make the background transparent
+    def get_player_sprite(self):
+        width, height = 90, 95
+        return self.crop(1335, 0, width, height)
+
+    def get_big_cacti_sprites(self):
+        sprites = [
+            self.crop(650, 0, 52, 100),
+            self.crop(702, 0, 50, 100),
+            self.crop(752, 0, 98, 100),
+            self.crop(850, 0, 103, 100)
+        ]
+        return sprites
+
+class Ground:
+    def __init__(self, win_width, win_height, spritesheet):
+        self.sprite = spritesheet.get_ground_sprite()
+
+        width = self.sprite.get_width()
+        height = self.sprite.get_height()
         self.rects = [
             # At the bottom left of the window
-            pygame.Rect(0, window_height - height, width, height),
+            pygame.Rect(0, win_height - height, width, height),
             # Immediately after the first rect, off the screen
             # at the bottom right
-            pygame.Rect(width - window_width, window_height - height, width, height)
+            pygame.Rect(width - win_width, win_height - height, width, height)
         ]
-        self.window_width = window_width
+        self.win_width = win_width
 
     def update(self):
         # We use 2 sprites moving to the left
@@ -57,7 +65,7 @@ class Ground:
             # Move to the end of the other sprite when
             # the sprite moves completely off the screen
             if self.rects[i].x == -self.rects[i].width:
-                self.rects[i].x = self.rects[i].width - self.window_width
+                self.rects[i].x = self.rects[i].width - self.win_width
 
     def draw(self, canvas):
         for rect in self.rects:
@@ -65,8 +73,7 @@ class Ground:
 
 class Player:
     def __init__(self, ground_y, spritesheet):
-        self.sprite = spritesheet.crop(1335, 0, 90, 95)
-        self.sprite.set_colorkey((0, 0, 0)) # Make the background transparent
+        self.sprite = spritesheet.get_player_sprite()
 
         self.rect = self.sprite.get_rect()
         self.rect.y = ground_y - 95
@@ -114,31 +121,18 @@ class Player:
         elif self.jumping_up:
             self.jump_up(delta_time)
 
-PREVIOUS_OFFSET = 0 # TODO: remove this
-
 class Obstacle:
-    def __init__(self, window_width, ground_y, possible_sprites):
+    def __init__(self, win_width, ground_y, spritesheet):
         # Default values
         self.rect = pygame.Rect(0, 0, 0, 0)
         self.sprite = pygame.Surface((0, 0))
 
         self.speed = 100
         self.ground = ground_y
-        self.possible_sprites = possible_sprites
-        self.window_width = window_width
+        self.possible_sprites = spritesheet.get_big_cacti_sprites()
+        self.win_width = win_width
 
         self.spawn()
-
-    # TODO: reimplement this
-    # Choose a random offset that avoids being
-    # to close to other obstacles
-    def random_offset(self):
-        global PREVIOUS_OFFSET
-        offset = random.randint(50, 800)
-        while abs(offset - PREVIOUS_OFFSET) < 300:
-            offset = random.randint(50, 800)
-        PREVIOUS_OFFSET = offset
-        return offset
 
     # Randomly choose a sprite and offset position
     def spawn(self):
@@ -147,7 +141,12 @@ class Obstacle:
 
         self.rect.width = self.sprite.get_width()
         self.rect.height = self.sprite.get_height()
-        self.rect.x = self.window_width + self.random_offset()
+
+        # The start is random so we don't generate
+        # a sequence of random numbers that are close to each other
+        start = random.randint(50, 200)
+        offset = random.randint(start, 800)
+        self.rect.x = self.win_width + offset
         self.rect.y = self.ground - self.rect.height
 
     def update(self, delta_time):
@@ -160,29 +159,24 @@ class Obstacle:
     def draw(self, canvas):
         canvas.blit(self.sprite, self.rect)
 
-# TODO: refactor the rest
-# TODO: idea: what if the spritesheet class was responsible for
-# extracting the sprites?
-fps = 60
-window_width = 600
-window_height = 600
-window = pygame.display.set_mode((window_width, window_height))
-pygame.display.set_caption("Dino")
-clock = pygame.time.Clock()
-
+pygame.init()
 sheet = Spritesheet()
-ground = Ground(window_width, window_height, sheet)
-player = Player(window_height, sheet)
+
+win_width = 600
+win_height = 600
+window = pygame.display.set_mode((win_width, win_height))
+pygame.display.set_caption("Dino")
+
+clock = pygame.time.Clock()
+fps = 60
+
+ground = Ground(win_width, win_height, sheet)
+player = Player(win_height, sheet)
 
 obstacles = []
-cacti_sprites = [
-    sheet.crop(650, 0, 52, 100),
-    sheet.crop(702, 0, 50, 100),
-    sheet.crop(752, 0, 98, 100),
-    sheet.crop(850, 0, 103, 100)
-]
 for i in range(2):
-    obstacles.append(Obstacle(window_width,window_height, cacti_sprites))
+    o = Obstacle(win_width,win_height, sheet)
+    obstacles.append(o)
 
 delta_time = 0
 running = True
