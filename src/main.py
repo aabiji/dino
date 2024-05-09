@@ -2,45 +2,16 @@ import os
 import random
 import pygame
 
-class Spritesheet:
-    def __init__(self):
-        path = "assets/spritesheet.png"
-        if not os.path.exists(path):
-            print("assets/spritesheet.png not found")
-            exit(1)
-
-        self.sheet = pygame.image.load(path)
-        self.sheet = pygame.transform.grayscale(self.sheet)
-        self.width = self.sheet.get_width()
-        self.height = self.sheet.get_height()
-
-    # Return a portion of the spritesheet as a new sprite
-    def crop(self, x, y, width, height):
-        crop_area = pygame.Rect(x, y, width, height)
-        sprite = pygame.Surface((width, height))
-        sprite.blit(self.sheet, (0, 0), crop_area)
-        return sprite
-
-    def get_ground_sprite(self):
-        width, height = self.width, 15
-        return self.crop(0, self.height - height, width, height)
-
-    def get_player_sprite(self):
-        width, height = 90, 95
-        return self.crop(1335, 0, width, height)
-
-    def get_big_cacti_sprites(self):
-        sprites = [
-            self.crop(650, 0, 52, 100),
-            self.crop(702, 0, 50, 100),
-            self.crop(752, 0, 98, 100),
-            self.crop(850, 0, 103, 100)
-        ]
-        return sprites
+def load_image(path):
+    if not os.path.exists(path):
+        print(f"{path} not found.")
+        pygame.quit()
+        exit(1)
+    return pygame.image.load(path)
 
 class Ground:
-    def __init__(self, win_width, win_height, spritesheet):
-        self.sprite = spritesheet.get_ground_sprite()
+    def __init__(self, win_width, win_height):
+        self.sprite = load_image("assets/ground.png")
 
         width = self.sprite.get_width()
         height = self.sprite.get_height()
@@ -72,11 +43,11 @@ class Ground:
             canvas.blit(self.sprite, rect)
 
 class Player:
-    def __init__(self, ground_y, spritesheet):
-        self.sprite = spritesheet.get_player_sprite()
+    def __init__(self, ground_y):
+        self.sprite = load_image("assets/dino/jump.png")
 
         self.rect = self.sprite.get_rect()
-        self.rect.y = ground_y - 95
+        self.rect.y = ground_y - self.sprite.get_height()
         self.rect.x = 50
 
         self.jumping_up = False
@@ -122,15 +93,20 @@ class Player:
             self.jump_up(delta_time)
 
 class Obstacle:
-    def __init__(self, win_width, ground_y, spritesheet):
+    def __init__(self, win_width, ground_y):
         # Default values
         self.rect = pygame.Rect(0, 0, 0, 0)
         self.sprite = pygame.Surface((0, 0))
 
         self.speed = 100
         self.ground = ground_y
-        self.possible_sprites = spritesheet.get_big_cacti_sprites()
         self.win_width = win_width
+
+        self.possible_sprites = []
+        folder = "assets/cacti"
+        for file in os.listdir(folder):
+            image = load_image(f"{folder}/{file}")
+            self.possible_sprites.append(image)
 
         self.spawn()
 
@@ -159,24 +135,21 @@ class Obstacle:
     def draw(self, canvas):
         canvas.blit(self.sprite, self.rect)
 
-pygame.init()
-sheet = Spritesheet()
-
 win_width = 600
 win_height = 600
+pygame.init()
 window = pygame.display.set_mode((win_width, win_height))
 pygame.display.set_caption("Dino")
 
 clock = pygame.time.Clock()
 fps = 60
 
-ground = Ground(win_width, win_height, sheet)
-player = Player(win_height, sheet)
+ground = Ground(win_width, win_height)
+player = Player(win_height)
 
 obstacles = []
 for i in range(2):
-    o = Obstacle(win_width,win_height, sheet)
-    obstacles.append(o)
+    obstacles.append(Obstacle(win_width, win_height))
 
 delta_time = 0
 running = True
