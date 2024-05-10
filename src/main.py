@@ -44,22 +44,42 @@ class Ground:
 
 class Player:
     def __init__(self, ground_y):
-        self.sprite = load_image("assets/dino/jump.png")
+        self.ground = ground_y
 
-        self.rect = self.sprite.get_rect()
-        self.rect.y = ground_y - self.sprite.get_height()
-        self.rect.x = 50
+        self.run_sprites = [
+            load_image("assets/dino/run1.png"),
+            load_image("assets/dino/run2.png"),
+        ]
+        self.sprite_index = 0
+        self.previous_time = pygame.time.get_ticks()
 
+        self.rect = pygame.Rect(50, 0, 0, 0)
+        self.update_rect_dimensions()
+        self.rect.y = self.ground - self.rect.height
+
+        self.gravity = 300
         self.jumping_up = False
         self.jumping_down = False
         self.jump_extra = 0
         self.max_jump_height = ground_y - self.rect.height * 3
 
-        self.gravity = 300
-        self.ground = ground_y
+    def update_rect_dimensions(self):
+        sprite = self.run_sprites[self.sprite_index]
+        self.rect.width = sprite.get_width()
+        self.rect.height = sprite.get_height()
 
-    def draw(self, canvas):
-        canvas.blit(self.sprite, self.rect)
+    def animate(self):
+        speed = 50
+        time = pygame.time.get_ticks()
+
+        # Switch through the different animation frames
+        # (sprites) every speed miliseconds
+        if time - self.previous_time > speed:
+            self.sprite_index += 1
+            if self.sprite_index == 2:
+                self.sprite_index = 0
+            self.update_rect_dimensions()
+            self.previous_time = time
 
     def hold_jump(self):
         if self.jumping_down:
@@ -86,11 +106,16 @@ class Player:
             self.rect.y = base_height
             self.jumping_down = False
 
+    def draw(self, canvas):
+        sprite = self.run_sprites[self.sprite_index]
+        canvas.blit(sprite, self.rect)
+
     def update(self, delta_time):
         if self.jumping_down:
             self.jump_down(delta_time)
         elif self.jumping_up:
             self.jump_up(delta_time)
+        self.animate()
 
 class Obstacle:
     def __init__(self, win_width, ground_y):
@@ -123,7 +148,7 @@ class Obstacle:
         start = random.randint(50, 200)
         offset = random.randint(start, 800)
         self.rect.x = self.win_width + offset
-        self.rect.y = self.ground - self.rect.height
+        self.rect.y = self.ground - self.rect.height - 5
 
     def update(self, delta_time):
         self.rect.x -= self.speed * delta_time
