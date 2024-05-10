@@ -57,11 +57,11 @@ class Player:
         self.update_rect_dimensions()
         self.rect.y = self.ground - self.rect.height
 
-        self.gravity = 300
-        self.jumping_up = False
-        self.jumping_down = False
-        self.jump_extra = 0
-        self.max_jump_height = ground_y - self.rect.height * 3
+        self.jumping = False
+        self.default_velocity = 400
+        self.base_velocity = self.default_velocity
+        self.velocity = self.base_velocity
+        self.acceleration = 10
 
     def update_rect_dimensions(self):
         sprite = self.run_sprites[self.sprite_index]
@@ -82,39 +82,33 @@ class Player:
             self.previous_time = time
 
     def hold_jump(self):
-        if self.jumping_down:
+        if self.base_velocity < self.default_velocity + 100:
+            player.jumping = True
+            # Increase jump height based on
+            # how long the jump is held
+            self.base_velocity += 10
+            self.velocity += 10
+
+    def jump(self, delta_time):
+        if not self.jumping:
             return
-        self.jumping_up = True
-        # Increase our jump height based on how long we jump
-        self.jump_extra += 1
 
-    def jump_up(self, delta_time):
-        self.rect.y -= self.gravity * delta_time
+        self.velocity -= self.acceleration
+        self.rect.y -= self.velocity * delta_time
 
-        peek_height = self.max_jump_height - self.jump_extra
-        if self.rect.y <= peek_height: # Reached the jump peek
-            self.rect.y = self.max_jump_height
-            self.jumping_up = False
-            self.jumping_down = True
-            self.jump_extra = 0
-
-    def jump_down(self, delta_time):
-        self.rect.y += self.gravity * delta_time
-
-        base_height = self.ground - self.rect.height
-        if self.rect.y >= base_height: # On the ground
-            self.rect.y = base_height
-            self.jumping_down = False
+        below_ground = self.rect.y > self.ground - self.rect.height
+        if self.velocity <= -self.base_velocity or below_ground:
+            self.rect.y = self.ground - self.rect.height
+            self.jumping = False
+            self.base_velocity = self.default_velocity
+            self.velocity = self.base_velocity
 
     def draw(self, canvas):
         sprite = self.run_sprites[self.sprite_index]
         canvas.blit(sprite, self.rect)
 
     def update(self, delta_time):
-        if self.jumping_down:
-            self.jump_down(delta_time)
-        elif self.jumping_up:
-            self.jump_up(delta_time)
+        self.jump(delta_time)
         self.animate()
 
 class Obstacle:
