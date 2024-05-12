@@ -42,44 +42,52 @@ class Ground:
         for rect in self.rects:
             canvas.blit(self.sprite, rect)
 
-class Player:
-    def __init__(self, ground_y):
-        self.ground = ground_y
-
-        self.run_sprites = [
-            load_image("assets/dino/run1.png"),
-            load_image("assets/dino/run2.png"),
-        ]
+class Animation:
+    def __init__(self, image_paths):
         self.sprite_index = 0
         self.previous_time = pygame.time.get_ticks()
+        self.sprites = [load_image(path) for path in image_paths]
+
+    def current_sprite(self):
+        return self.sprites[self.sprite_index]
+
+    def animate(self):
+        duration = 50
+        max_index = len(self.sprites)
+        time = pygame.time.get_ticks()
+
+        # Switch through the different animation frames
+        # (sprites) every speed miliseconds
+        if time - self.previous_time > duration:
+            self.sprite_index += 1
+            if self.sprite_index == max_index:
+                self.sprite_index = 0
+            self.previous_time = time
+
+class Player:
+    def __init__(self, ground_y):
+        run_image_paths = ["assets/dino/run1.png", "assets/dino/run2.png"]
+        self.run_animation = Animation(run_image_paths)
+
+        jump_image_paths = ["assets/dino/jump.png"]
+        self.jump_animation = Animation(jump_image_paths)
 
         self.rect = pygame.Rect(50, 0, 0, 0)
-        self.update_rect_dimensions()
-        self.rect.y = self.ground - self.rect.height
 
         self.jumping = False
         self.default_velocity = 400
         self.base_velocity = self.default_velocity
         self.velocity = self.base_velocity
         self.acceleration = 10
+        self.ground = ground_y
 
-    def update_rect_dimensions(self):
-        sprite = self.run_sprites[self.sprite_index]
-        self.rect.width = sprite.get_width()
-        self.rect.height = sprite.get_height()
+        self.score = 0
 
-    def animate(self):
-        speed = 50
-        time = pygame.time.get_ticks()
-
-        # Switch through the different animation frames
-        # (sprites) every speed miliseconds
-        if time - self.previous_time > speed:
-            self.sprite_index += 1
-            if self.sprite_index == 2:
-                self.sprite_index = 0
-            self.update_rect_dimensions()
-            self.previous_time = time
+    def get_current_sprite(self):
+        if self.jumping:
+            return self.jump_animation.current_sprite()
+        else:
+            return self.run_animation.current_sprite()
 
     def hold_jump(self):
         if self.base_velocity < self.default_velocity + 100:
@@ -90,9 +98,6 @@ class Player:
             self.velocity += 10
 
     def jump(self, delta_time):
-        if not self.jumping:
-            return
-
         self.velocity -= self.acceleration
         self.rect.y -= self.velocity * delta_time
 
@@ -104,12 +109,22 @@ class Player:
             self.velocity = self.base_velocity
 
     def draw(self, canvas):
-        sprite = self.run_sprites[self.sprite_index]
+        sprite = self.get_current_sprite()
+
+        self.rect.width = sprite.get_width()
+        self.rect.height = sprite.get_height()
+        if self.rect.y == 0: # Hasn't been set yet
+            self.rect.y = self.ground - self.rect.height
+
         canvas.blit(sprite, self.rect)
 
     def update(self, delta_time):
-        self.jump(delta_time)
-        self.animate()
+        if self.jumping:
+            self.jump(delta_time)
+            self.jump_animation.animate()
+        else:
+            self.run_animation.animate()
+        self.score += 1
 
 class Obstacle:
     def __init__(self, win_width, ground_y):
