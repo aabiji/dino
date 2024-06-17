@@ -166,7 +166,7 @@ class Obstacle:
         canvas.blit(self.sprite, self.rect)
 
 win_width = 600
-win_height = 600
+win_height = 500
 pygame.init()
 window = pygame.display.set_mode((win_width, win_height))
 pygame.display.set_caption("Dino")
@@ -181,6 +181,10 @@ player = Player(win_height)
 obstacles = []
 for i in range(2):
     obstacles.append(Obstacle(win_width, win_height))
+
+path = "assets/PressStart2P-Regular.ttf"
+font = pygame.font.Font(path, 15)
+max_score = 0
 
 delta_time = 0
 running = True
@@ -206,6 +210,13 @@ while running:
     player.draw(window)
     for obstacle in obstacles:
         obstacle.draw(window)
+
+    high_score = font.render(f"HI {max_score}", False, (50, 50, 50))
+    score = font.render(f"{player.score}", False, (0, 0, 0))
+    score_x = win_width - score.get_width()
+    high_score_x = score_x - high_score.get_width() - 20
+    window.blit(score, (score_x, 0))
+    window.blit(high_score, (high_score_x, 0))
 
     pygame.display.update()
 
