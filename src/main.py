@@ -10,7 +10,7 @@ def load_image(path):
     return pygame.image.load(path)
 
 class Ground:
-    def __init__(self, win_width, win_height):
+    def __init__(self, win_height):
         self.sprite = load_image("assets/ground.png")
 
         width = self.sprite.get_width()
@@ -20,45 +20,44 @@ class Ground:
             pygame.Rect(0, win_height - height, width, height),
             # Immediately after the first rect, off the screen
             # at the bottom right
-            pygame.Rect(width - win_width, win_height - height, width, height)
+            pygame.Rect(width, win_height - height, width, height)
         ]
-        self.win_width = win_width
 
-    def update(self):
-        # We use 2 sprites moving to the left
+    def update(self, speed, delta_time):
+        # We use 2 sprites moving to the left in unison
         # to achieve smooth scrolling. When the first
         # sprite goes completely off the screen, the
-        # second sprite replaces it and the first sprite goes
+        # second sprite is already at the start so
+        # replaces the first sprite and the first sprite goes
         # immediately after the second sprite. Vice versa.
         for i in range(2):
-            self.rects[i].x -= 1
+            self.rects[i].x -= speed * delta_time
 
             # Move to the end of the other sprite when
             # the sprite moves completely off the screen
-            if self.rects[i].x == -self.rects[i].width:
-                self.rects[i].x = self.rects[i].width - self.win_width
+            if self.rects[i].x <= -self.rects[i].width:
+                self.rects[i].x = self.rects[i].width
 
     def draw(self, canvas):
         for rect in self.rects:
             canvas.blit(self.sprite, rect)
 
 class Animation:
-    def __init__(self, image_paths):
+    def __init__(self, image_paths, animation_speed):
         self.sprite_index = 0
         self.previous_time = pygame.time.get_ticks()
         self.sprites = [load_image(path) for path in image_paths]
+        self.speed = animation_speed
 
     def current_sprite(self):
         return self.sprites[self.sprite_index]
 
     def animate(self):
-        duration = 50
         max_index = len(self.sprites)
         time = pygame.time.get_ticks()
 
-        # Switch through the different animation frames
-        # (sprites) every speed miliseconds
-        if time - self.previous_time > duration:
+        # Switch through the different animation sprites every few miliseconds
+        if time - self.previous_time > self.speed:
             self.sprite_index += 1
             if self.sprite_index == max_index:
                 self.sprite_index = 0
@@ -66,22 +65,41 @@ class Animation:
 
 class Player:
     def __init__(self, ground_y):
-        run_image_paths = ["assets/dino/run1.png", "assets/dino/run2.png"]
-        self.run_animation = Animation(run_image_paths)
-
-        jump_image_paths = ["assets/dino/jump.png"]
-        self.jump_animation = Animation(jump_image_paths)
+        self.run_animation = Animation([
+            "assets/dino/run1.png",
+            "assets/dino/run2.png",
+        ], 75)
+        self.jump_animation = Animation(["assets/dino/jump.png"], 0)
 
         self.rect = pygame.Rect(50, 0, 0, 0)
 
         self.jumping = False
-        self.default_velocity = 400
-        self.base_velocity = self.default_velocity
-        self.velocity = self.base_velocity
-        self.acceleration = 10
-        self.ground = ground_y
+        self.acceleration = 50
+        self.jump_speed = self.acceleration * 10
+        self.default_velocity = 600
+        self.velocity = self.default_velocity
+        self.ground_y = ground_y
+        self.max_height = ground_y - 100
 
         self.score = 0
+
+    # FIXME: this isn't entirely correct
+    def hold_jump(self):
+        if self.rect.y >= self.max_height:
+            self.jumping = True
+            # Increase jump height based on
+            # how long the jump is held
+            self.velocity += self.jump_speed
+
+    def jump(self, delta_time):
+        self.velocity -= self.acceleration
+        self.rect.y -= self.velocity * delta_time
+
+        # If we're on or below the ground
+        if self.rect.y >= self.ground_y - self.rect.height:
+            self.rect.y = self.ground_y - self.rect.height
+            self.velocity = self.default_velocity
+            self.jumping = False
 
     def get_current_sprite(self):
         if self.jumping:
@@ -89,33 +107,12 @@ class Player:
         else:
             return self.run_animation.current_sprite()
 
-    def hold_jump(self):
-        if self.base_velocity < self.default_velocity + 100:
-            player.jumping = True
-            # Increase jump height based on
-            # how long the jump is held
-            self.base_velocity += 10
-            self.velocity += 10
-
-    def jump(self, delta_time):
-        self.velocity -= self.acceleration
-        self.rect.y -= self.velocity * delta_time
-
-        below_ground = self.rect.y > self.ground - self.rect.height
-        if self.velocity <= -self.base_velocity or below_ground:
-            self.rect.y = self.ground - self.rect.height
-            self.jumping = False
-            self.base_velocity = self.default_velocity
-            self.velocity = self.base_velocity
-
     def draw(self, canvas):
         sprite = self.get_current_sprite()
-
         self.rect.width = sprite.get_width()
         self.rect.height = sprite.get_height()
         if self.rect.y == 0: # Hasn't been set yet
-            self.rect.y = self.ground - self.rect.height
-
+            self.rect.y = self.ground_y - self.rect.height
         canvas.blit(sprite, self.rect)
 
     def update(self, delta_time):
@@ -132,7 +129,6 @@ class Obstacle:
         self.rect = pygame.Rect(0, 0, 0, 0)
         self.sprite = pygame.Surface((0, 0))
 
-        self.speed = 100
         self.ground = ground_y
         self.win_width = win_width
 
@@ -147,7 +143,7 @@ class Obstacle:
     # Randomly choose a sprite and offset position
     def spawn(self):
         self.sprite = random.choice(self.possible_sprites)
-        self.sprite.set_colorkey((0, 0, 0)) # make the background transparent
+        #self.sprite.set_colorkey((0, 0, 0)) # make the background transparent
 
         self.rect.width = self.sprite.get_width()
         self.rect.height = self.sprite.get_height()
@@ -159,8 +155,8 @@ class Obstacle:
         self.rect.x = self.win_width + offset
         self.rect.y = self.ground - self.rect.height - 5
 
-    def update(self, delta_time):
-        self.rect.x -= self.speed * delta_time
+    def update(self, speed, delta_time):
+        self.rect.x -= speed * delta_time
 
         off_the_screen = self.rect.x < -self.rect.width
         if off_the_screen:
@@ -177,8 +173,9 @@ pygame.display.set_caption("Dino")
 
 clock = pygame.time.Clock()
 fps = 60
+game_speed = 300
 
-ground = Ground(win_width, win_height)
+ground = Ground(win_height)
 player = Player(win_height)
 
 obstacles = []
@@ -197,10 +194,10 @@ while running:
     if keys[pygame.K_SPACE]:
         player.hold_jump()
 
-    ground.update()
+    ground.update(game_speed, delta_time)
     player.update(delta_time)
     for obstacle in obstacles:
-        obstacle.update(delta_time)
+        obstacle.update(game_speed, delta_time)
         if player.rect.colliderect(obstacle.rect):
             print("game over")
 
