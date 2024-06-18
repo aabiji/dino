@@ -11,7 +11,7 @@ def load_image(path):
 
 class Ground:
     def __init__(self, win_height):
-        self.sprite = load_image("assets/ground.png")
+        self.sprite = load_image("assets/other/ground.png")
 
         width = self.sprite.get_width()
         height = self.sprite.get_height()
