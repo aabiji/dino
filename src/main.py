@@ -1,6 +1,14 @@
 import pygame
 from game import Ground, Player, Obstacle
 
+# TODO: avoid obstacle clumping
+# TODO: fix jump
+# TODO: better collision detection (per pixel)
+# TODO: High score
+# TODO: game over
+# TODO; mediapipe gesture recognition
+# TODO: mediapipe integration
+
 win_width = 600
 win_height = 500
 pygame.init()
