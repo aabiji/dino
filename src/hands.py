@@ -15,6 +15,15 @@ class Detector:
         self.detector = vision.HandLandmarker.create_from_options(options)
         self.annotated_image = np.zeros((640,480,3), np.uint8)
 
+    def is_hand_open(self, hand_landmark):
+        # Refer to these docs: https://github.com/google-ai-edge/mediapipe/blob/master/docs/solutions/hands.md
+        for i in range(5, 18, 4):
+            finger_mcp_y = hand_landmark[i].y
+            finger_tip_y = hand_landmark[i + 3].y
+            if finger_tip_y < finger_mcp_y:
+                return True
+        return False
+
     def render_hand_landmarks(self, detection_result, image, _):
         annotated = np.copy(image.numpy_view())
         hand_landmarks = detection_result.hand_landmarks
@@ -22,8 +31,14 @@ class Detector:
         for i in range(len(hand_landmarks)):
             hand_landmark = hand_landmarks[i]
 
+            is_open = self.is_hand_open(hand_landmark)
+            if is_open:
+                print("hand is open")
+            else:
+                print("hand is closed")
+
             proto_landmark = landmark_pb2.NormalizedLandmarkList()
-            points = [landmark_pb2.NormalizedLandmark(x=hl.x, y=hl.y, z=hl.z) for hl in hand_landmark]
+            points = [landmark_pb2.NormalizedLandmark(x=p.x, y=p.y, z=p.z) for p in hand_landmark]
             proto_landmark.landmark.extend(points)
 
             mp.solutions.drawing_utils.draw_landmarks(
@@ -48,7 +63,7 @@ class Detector:
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-            time.sleep(0.01)
+            time.sleep(1/60)
 
         video.release()
         cv2.destroyAllWindows()
