@@ -82,8 +82,6 @@ class Player:
         self.rect = pygame.Rect(50, 0, 0, 0)
         self.animation = None
 
-        self.text_font = pygame.font.Font("assets/PressStart2P-Regular.ttf", 15)
-
         self.jumping = False
         self.acceleration = 50
         self.jump_speed = self.acceleration * 10
@@ -112,16 +110,6 @@ class Player:
             self.velocity = self.default_velocity
             self.jumping = False
 
-    def draw_score(self, canvas):
-        high_score = self.text_font.render(f"HI {self.high_score}", False, (50, 50, 50))
-        score = self.text_font.render(f"{self.score}", False, (0, 0, 0))
-
-        score_x = canvas.get_rect().w - score.get_width()
-        high_score_x = score_x - high_score.get_width() - 20
-
-        canvas.blit(score, (score_x, 0))
-        canvas.blit(high_score, (high_score_x, 0))
-
     # Return True if pixel perfect collision detected
     def check_collision(self, obstacles):
         for obstacle in obstacles:
@@ -135,8 +123,24 @@ class Player:
                 return True
         return False
 
-    def draw(self, canvas):
-        self.draw_score(canvas)
+    def reset(self):
+        self.high_score = self.score
+        self.score = 0
+        self.jumping = False
+        self.rect.y = self.ground_y - self.rect.height
+
+    def draw_score(self, canvas, font):
+        high_score = font.render(f"HI {self.high_score}", False, (50, 50, 50))
+        score = font.render(f"{self.score}", False, (0, 0, 0))
+
+        score_x = canvas.get_rect().w - score.get_width()
+        high_score_x = score_x - high_score.get_width() - 20
+
+        canvas.blit(score, (score_x, 0))
+        canvas.blit(high_score, (high_score_x, 0))
+
+    def draw(self, canvas, font):
+        self.draw_score(canvas, font)
 
         sprite = self.animation.current_sprite()
         self.rect.width = sprite.get_width()
@@ -145,17 +149,14 @@ class Player:
             self.rect.y = self.ground_y - self.rect.height
         canvas.blit(sprite, self.rect)
 
-    def update(self, delta_time, obstacles):
+    def update(self, delta_time):
         if self.jumping:
             self.jump(delta_time)
             self.animation = self.jump_animation
         else:
             self.animation = self.run_animation
-
         self.animation.animate()
         self.score += 1
-
-        self.check_collision(obstacles)
 
 class Obstacle:
     def __init__(self, ground_y):
@@ -188,9 +189,13 @@ class Obstacle:
 
 class Obstacles:
     def __init__(self, window_width, ground_y):
+        self.ground_y = ground_y
         self.obstacles = [Obstacle(ground_y) for _ in range(3)]
         self.min_obstacle_gap = 200
         self.window_width = window_width
+
+    def reset(self):
+        self.obstacles = [Obstacle(self.ground_y) for _ in range(3)]
 
     def update(self, speed, delta_time):
         for i in range(len(self.obstacles)):
