@@ -1,7 +1,22 @@
+## Dino
 
+A clone of chrome's Dinosaur Game. This time
+the game is controled by hand gestures. This project uses
+mediapipe for the hand landmarking and pygame for the game.
+Pretty cool I think!
 
-# Ressources
-- https://medium.com/@oetalmage16/a-tutorial-on-finger-counting-in-real-time-video-in-python-with-opencv-and-mediapipe-114a988df46a
-- https://developers.google.com/mediapipe/solutions/vision/hand_landmarker
-- https://developers.google.com/mediapipe/framework/getting_started/install
-- `uv pip install opencv-python mediapipe`
+Running:
+1. [Install mediapipe](https://ai.google.dev/edge/mediapipe/framework/getting_started/install)
+2. Setup project and run
+   ```
+   # Install uv
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+
+   # Setup project
+   git clone https://github.com/aabiji/dino.git && cd dino
+   uv venv .venv
+   source .venv/bin/activate
+   uv pip install -r requirements.txt
+
+   python3 src/main.py
+   ```
