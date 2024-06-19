@@ -9,6 +9,7 @@ def load_image(path):
         exit(1)
     return pygame.image.load(path)
 
+
 class Ground:
     def __init__(self, win_height):
         self.sprite = load_image("assets/other/ground.png")
@@ -42,26 +43,34 @@ class Ground:
         for rect in self.rects:
             canvas.blit(self.sprite, rect)
 
+
 class Animation:
     def __init__(self, image_paths, animation_speed):
-        self.sprite_index = 0
+        self.frame = 0
         self.previous_time = pygame.time.get_ticks()
         self.sprites = [load_image(path) for path in image_paths]
+        self.masks = [pygame.mask.from_surface(sprite) for sprite in self.sprites]
         self.speed = animation_speed
 
     def current_sprite(self):
-        return self.sprites[self.sprite_index]
+        return self.sprites[self.frame]
+
+    def current_mask(self):
+        return self.masks[self.frame]
 
     def animate(self):
+        if self.speed <= 0: return # No animation
+
         max_index = len(self.sprites)
         time = pygame.time.get_ticks()
 
         # Switch through the different animation sprites every few miliseconds
         if time - self.previous_time > self.speed:
-            self.sprite_index += 1
-            if self.sprite_index == max_index:
-                self.sprite_index = 0
+            self.frame += 1
+            if self.frame == max_index:
+                self.frame = 0
             self.previous_time = time
+
 
 class Player:
     def __init__(self, ground_y):
@@ -70,8 +79,10 @@ class Player:
             "assets/dino/run2.png",
         ], 75)
         self.jump_animation = Animation(["assets/dino/jump.png"], 0)
-        self.text_font = pygame.font.Font("assets/PressStart2P-Regular.ttf", 15)
         self.rect = pygame.Rect(50, 0, 0, 0)
+        self.animation = None
+
+        self.text_font = pygame.font.Font("assets/PressStart2P-Regular.ttf", 15)
 
         self.jumping = False
         self.acceleration = 50
@@ -84,7 +95,6 @@ class Player:
         self.score = 0
         self.high_score = 0
 
-    # FIXME: this isn't entirely correct
     def hold_jump(self):
         if self.rect.y >= self.max_height:
             self.jumping = True
@@ -102,12 +112,6 @@ class Player:
             self.velocity = self.default_velocity
             self.jumping = False
 
-    def get_current_sprite(self):
-        if self.jumping:
-            return self.jump_animation.current_sprite()
-        else:
-            return self.run_animation.current_sprite()
-
     def draw_score(self, canvas):
         high_score = self.text_font.render(f"HI {self.high_score}", False, (50, 50, 50))
         score = self.text_font.render(f"{self.score}", False, (0, 0, 0))
@@ -118,59 +122,88 @@ class Player:
         canvas.blit(score, (score_x, 0))
         canvas.blit(high_score, (high_score_x, 0))
 
+    # Return True if pixel perfect collision detected
+    def check_collision(self, obstacles):
+        for obstacle in obstacles:
+            if obstacle.rect.x < self.rect.x:
+                continue # Ignore obstacles behind us
+
+            mask = obstacle.possible_masks[obstacle.index]
+            our_mask = self.animation.current_mask()
+            offset = (obstacle.rect.x - self.rect.x, obstacle.rect.y - self.rect.y)
+            if our_mask.overlap(mask, offset):
+                return True
+        return False
+
     def draw(self, canvas):
         self.draw_score(canvas)
 
-        sprite = self.get_current_sprite()
+        sprite = self.animation.current_sprite()
         self.rect.width = sprite.get_width()
         self.rect.height = sprite.get_height()
         if self.rect.y == 0: # Hasn't been set yet
             self.rect.y = self.ground_y - self.rect.height
         canvas.blit(sprite, self.rect)
 
-    def update(self, delta_time):
+    def update(self, delta_time, obstacles):
         if self.jumping:
             self.jump(delta_time)
-            self.jump_animation.animate()
+            self.animation = self.jump_animation
         else:
-            self.run_animation.animate()
+            self.animation = self.run_animation
+
+        self.animation.animate()
         self.score += 1
 
-class Obstacle:
-    def __init__(self, win_width, ground_y):
-        # Default values
-        self.rect = pygame.Rect(0, 0, 0, 0)
-        self.sprite = pygame.Surface((0, 0))
+        self.check_collision(obstacles)
 
+class Obstacle:
+    def __init__(self, ground_y):
         self.ground = ground_y
-        self.win_width = win_width
+        self.spawn_position = 0
 
         self.possible_sprites = []
+        self.possible_masks = []
+        self.index = 0
         folder = "assets/cacti"
         for file in os.listdir(folder):
             image = load_image(f"{folder}/{file}")
+            mask = pygame.mask.from_surface(image)
             self.possible_sprites.append(image)
+            self.possible_masks.append(mask)
 
-        self.spawn()
+        self.rect = pygame.Rect(0, 0, 0, 0)
+        self.sprite = pygame.Surface((0, 0))
 
-    # Randomly choose a sprite and offset position
-    def spawn(self):
-        self.sprite = random.choice(self.possible_sprites)
+    def spawn(self, start):
+        self.index = random.randint(0, len(self.possible_sprites) - 1)
+        self.sprite = self.possible_sprites[self.index]
         self.rect.width = self.sprite.get_width()
         self.rect.height = self.sprite.get_height()
 
-        # The start is random so we don't generate
-        # a sequence of random numbers that are close to each other
-        offset = random.randint(50, 800)
-        self.rect.x = self.win_width + offset
-        self.rect.y = self.ground - self.rect.height - 5
+        self.spawn_position = random.randint(start, start + 400)
+        self.rect.x = self.spawn_position
+        self.rect.y = self.ground - self.rect.height
+
+
+class Obstacles:
+    def __init__(self, window_width, ground_y):
+        self.obstacles = [Obstacle(ground_y) for _ in range(3)]
+        self.min_obstacle_gap = 200
+        self.window_width = window_width
 
     def update(self, speed, delta_time):
-        self.rect.x -= speed * delta_time
+        for i in range(len(self.obstacles)):
+            self.obstacles[i].rect.x -= speed * delta_time
+            off_the_screen = self.obstacles[i].rect.x < -self.obstacles[i].rect.width
+            if off_the_screen:
+                prev_position = self.obstacles[i - 1].spawn_position
+                prev_position += self.min_obstacle_gap
 
-        off_the_screen = self.rect.x < -self.rect.width
-        if off_the_screen:
-            self.spawn()
+                start = prev_position if i > 0 else self.window_width
+                self.obstacles[i].spawn(start)
 
     def draw(self, canvas):
-        canvas.blit(self.sprite, self.rect)
+        for obstacle in self.obstacles:
+            canvas.blit(obstacle.sprite, obstacle.rect)
+

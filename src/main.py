@@ -1,13 +1,10 @@
 import pygame
-from game import Ground, Player, Obstacle
+from game import Ground, Player, Obstacles
 
-# TODO: avoid obstacle clumping
-# TODO: fix jump
-# TODO: better collision detection (per pixel)
 # TODO: High score
 # TODO: game over
-# TODO; mediapipe gesture recognition
 # TODO: mediapipe integration
+# TODO: install model automatically if we haven't already
 
 win_width = 600
 win_height = 500
@@ -21,11 +18,7 @@ game_speed = 300
 
 ground = Ground(win_height)
 player = Player(win_height)
-
-obstacles = []
-for i in range(2):
-    obstacle = Obstacle(win_width, win_height)
-    obstacles.append(obstacle)
+obstacle_manager = Obstacles(win_width, win_height)
 
 delta_time = 0
 running = True
@@ -33,24 +26,21 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-            break
 
     keys = pygame.key.get_pressed()
     if keys[pygame.K_SPACE]:
         player.hold_jump()
+    if keys[pygame.K_q]:
+        running = False
 
     ground.update(game_speed, delta_time)
-    player.update(delta_time)
-    for obstacle in obstacles:
-        obstacle.update(game_speed, delta_time)
-        if player.rect.colliderect(obstacle.rect):
-            print("game over")
+    player.update(delta_time, obstacle_manager.obstacles)
+    obstacle_manager.update(game_speed, delta_time)
 
     window.fill("white")
     ground.draw(window)
     player.draw(window)
-    for obstacle in obstacles:
-        obstacle.draw(window)
+    obstacle_manager.draw(window)
 
     pygame.display.update()
 
