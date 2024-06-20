@@ -85,7 +85,7 @@ class Player:
 
         self.jumping = False
         self.acceleration = 50
-        self.jump_speed = self.acceleration * 10
+        self.jump_speed = 100
         self.default_velocity = 600
         self.velocity = self.default_velocity
         self.ground_y = ground_y
@@ -97,7 +97,7 @@ class Player:
         self.increment_interval = 0
 
     def hold_jump(self):
-        if self.rect.y >= self.max_height:
+        if self.velocity + self.jump_speed < 900 and self.rect.y > 400:
             self.jumping = True
             # Increase jump height based on how long the jump is held
             self.velocity += self.jump_speed

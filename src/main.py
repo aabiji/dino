@@ -1,8 +1,8 @@
-# TODO: fix jump
 # TODO: improve performance
 # TODO: don't immediately restart game
 # TODO: birds and clouds
 # TODO: segfault??
+# TODO: show hands better
 
 import cv2
 import pygame
