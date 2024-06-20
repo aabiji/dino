@@ -12,7 +12,7 @@ def load_image(path):
 
 class Ground:
     def __init__(self, win_height):
-        self.sprite = load_image("assets/other/ground.png")
+        self.sprite = load_image("assets/imgs/ground.png")
 
         width = self.sprite.get_width()
         height = self.sprite.get_height()
@@ -75,12 +75,13 @@ class Animation:
 class Player:
     def __init__(self, ground_y):
         self.run_animation = Animation([
-            "assets/dino/run1.png",
-            "assets/dino/run2.png",
+            "assets/imgs/run1.png",
+            "assets/imgs/run2.png",
         ], 75)
-        self.jump_animation = Animation(["assets/dino/jump.png"], 0)
+        self.jump_animation = Animation(["assets/imgs/jump.png"], 0)
         self.rect = pygame.Rect(50, 0, 0, 0)
         self.animation = None
+        self.point_effect = pygame.mixer.Sound("assets/sfx/point.wav")
 
         self.jumping = False
         self.acceleration = 50
@@ -92,12 +93,13 @@ class Player:
 
         self.score = 0
         self.high_score = 0
+        self.interval = 10
+        self.increment_interval = 0
 
     def hold_jump(self):
         if self.rect.y >= self.max_height:
             self.jumping = True
-            # Increase jump height based on
-            # how long the jump is held
+            # Increase jump height based on how long the jump is held
             self.velocity += self.jump_speed
 
     def jump(self, delta_time):
@@ -124,14 +126,13 @@ class Player:
         return False
 
     def reset(self):
-        self.high_score = self.score
         self.score = 0
         self.jumping = False
         self.rect.y = self.ground_y - self.rect.height
 
     def draw_score(self, canvas, font):
         high_score = font.render(f"HI {self.high_score}", False, (50, 50, 50))
-        score = font.render(f"{self.score}", False, (0, 0, 0))
+        score = font.render(f"{int(self.score)}", False, (0, 0, 0))
 
         score_x = canvas.get_rect().w - score.get_width()
         high_score_x = score_x - high_score.get_width() - 20
@@ -156,7 +157,14 @@ class Player:
         else:
             self.animation = self.run_animation
         self.animation.animate()
-        self.score += 1
+
+        # Increment the score every "interval" frames
+        self.increment_interval += 1
+        if self.increment_interval == self.interval:
+            self.score += 1
+            if self.score % 100 == 0:
+                pygame.mixer.Sound.play(self.point_effect)
+            self.increment_interval = 0
 
 class Obstacle:
     def __init__(self, ground_y):
@@ -166,8 +174,10 @@ class Obstacle:
         self.possible_sprites = []
         self.possible_masks = []
         self.index = 0
-        folder = "assets/cacti"
+        folder = "assets/imgs"
         for file in os.listdir(folder):
+            if "cacti" not in file:
+                continue
             image = load_image(f"{folder}/{file}")
             mask = pygame.mask.from_surface(image)
             self.possible_sprites.append(image)

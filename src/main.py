@@ -1,13 +1,13 @@
 import pygame
 from game import Ground, Player, Obstacles
 
+pygame.init()
+
 # TODO: mediapipe integration
 # TODO: install model automatically if we haven't already
-# TODO: flatten assets folder
 
 win_width = 600
 win_height = 500
-pygame.init()
 window = pygame.display.set_mode((win_width, win_height))
 pygame.display.set_caption("Dino")
 game_surface = pygame.Surface((win_width, win_height))
@@ -18,6 +18,9 @@ text_font = pygame.font.Font(font_path, 15)
 msg_font = pygame.font.Font(font_path, 20)
 game_over_message1 = msg_font.render("Game over", False, (0, 0, 0))
 game_over_message2 = msg_font.render("Press Space to restart", False, (0, 0, 0))
+
+jump_sound = pygame.mixer.Sound("assets/sfx/jump.wav")
+die_sound = pygame.mixer.Sound("assets/sfx/die.wav")
 
 clock = pygame.time.Clock()
 fps = 60
@@ -35,6 +38,9 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        if event.type == pygame.KEYUP and not game_over:
+            if event.key == pygame.K_SPACE:
+                pygame.mixer.Sound.play(jump_sound)
 
     if not game_over:
         if keys[pygame.K_SPACE]:
@@ -56,6 +62,7 @@ while running:
 
         if game_over: # Game freeze effect
             menu_surface = game_surface.copy()
+            pygame.mixer.Sound.play(die_sound)
             obstacle_manager.reset()
             player.reset()
     else:
