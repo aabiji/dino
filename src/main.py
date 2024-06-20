@@ -1,10 +1,15 @@
+# TODO: fix jump
+# TODO: improve performance
+# TODO: don't immediately restart game
+# TODO: birds and clouds
+# TODO: segfault??
+
+import cv2
 import pygame
+import hands
 from game import Ground, Player, Obstacles
 
 pygame.init()
-
-# TODO: mediapipe integration
-# TODO: install model automatically if we haven't already
 
 win_width = 600
 win_height = 500
@@ -31,6 +36,10 @@ player = Player(win_height)
 obstacle_manager = Obstacles(win_width, win_height)
 game_over = False
 
+video = cv2.VideoCapture(0)
+detector = hands.HandDetector()
+cam_surface = pygame.Surface((detector.image_size, detector.image_size))
+
 delta_time = 0
 running = True
 while running:
@@ -42,8 +51,13 @@ while running:
             if event.key == pygame.K_SPACE:
                 pygame.mixer.Sound.play(jump_sound)
 
+    ret, frame = video.read()
+    if ret:
+        detector.detect(frame)
+        cam_surface = pygame.surfarray.make_surface(detector.annotated_image)
+
     if not game_over:
-        if keys[pygame.K_SPACE]:
+        if keys[pygame.K_SPACE] or detector.hand_is_open:
             player.hold_jump()
 
         ground.update(game_speed, delta_time)
@@ -58,6 +72,7 @@ while running:
         ground.draw(game_surface)
         player.draw(game_surface, text_font)
         obstacle_manager.draw(game_surface)
+        game_surface.blit(cam_surface, (0, 0))
         window.blit(game_surface, (0, 0))
 
         if game_over: # Game freeze effect
@@ -68,6 +83,7 @@ while running:
     else:
         if keys[pygame.K_SPACE]:
             game_over = False
+        menu_surface.blit(cam_surface, (0, 0))
         window.blit(menu_surface, (0, 0))
         window.blit(game_over_message1, (200, 50))
         window.blit(game_over_message2, (80, 100))
@@ -76,4 +92,5 @@ while running:
     time_spent = clock.tick(fps)
     delta_time = time_spent / 1000
 
+video.release()
 pygame.quit()
